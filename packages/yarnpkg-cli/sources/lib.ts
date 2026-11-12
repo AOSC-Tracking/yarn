@@ -1,4 +1,4 @@
-import {Configuration, CommandContext, PluginConfiguration, TelemetryManager, semverUtils, miscUtils, YarnVersion} from '@yarnpkg/core';
+import {Configuration, CommandContext, PluginConfiguration, semverUtils, miscUtils, YarnVersion} from '@yarnpkg/core';
 import {PortablePath, npath, ppath, xfs}                                                                           from '@yarnpkg/fslib';
 import {execFileSync, type SpawnSyncReturns}                                                                       from 'child_process';
 import {isCI}                                                                                                      from 'ci-info';
@@ -114,24 +114,6 @@ function checkCwd(cli: YarnCli, argv: Array<string>) {
   return postCwdArgv;
 }
 
-function initTelemetry(cli: YarnCli, {configuration}: {configuration: Configuration}) {
-  const isTelemetryEnabled = configuration.get(`enableTelemetry`);
-  if (!isTelemetryEnabled || isCI || !process.stdout.isTTY)
-    return;
-
-  Configuration.telemetry = new TelemetryManager(configuration, `puba9cdc10ec5790a2cf4969dd413a47270`);
-
-  const PLUGIN_REGEX = /^@yarnpkg\/plugin-(.*)$/;
-
-  for (const name of configuration.plugins.keys())
-    if (pluginCommands.has(name.match(PLUGIN_REGEX)?.[1] ?? ``))
-      Configuration.telemetry?.reportPluginName(name);
-
-  if (cli.binaryVersion) {
-    Configuration.telemetry.reportVersion(cli.binaryVersion);
-  }
-}
-
 function initCommands(cli: YarnCli, {configuration}: {configuration: Configuration}) {
   for (const plugin of configuration.plugins.values()) {
     for (const command of plugin.commands || []) {
@@ -159,13 +141,9 @@ async function run(cli: YarnCli, argv: Array<string>, {selfPath, pluginConfigura
 
   const postCwdArgv = checkCwd(cli, argv);
 
-  initTelemetry(cli, {configuration});
   initCommands(cli, {configuration});
 
   const command = cli.process(postCwdArgv, cli.defaultContext);
-
-  if (!command.help)
-    Configuration.telemetry?.reportCommandName(command.path.join(` `));
 
   return await cli.run(command, cli.defaultContext);
 }
